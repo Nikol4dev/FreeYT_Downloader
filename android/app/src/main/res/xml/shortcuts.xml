@@ -1,0 +1,6 @@
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <share-target android:targetClass="com.example.premium_downloader.MainActivity">
+        <data android:mimeType="text/plain" />
+        <category android:name="com.example.premium_downloader.SHARE" />
+    </share-target>
+</shortcuts>
