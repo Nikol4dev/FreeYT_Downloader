@@ -112,3 +112,87 @@ class MediaTile extends StatelessWidget {
     );
   }
 }
+
+class MediaCard extends StatelessWidget {
+  const MediaCard({super.key, required this.media, required this.onOpen, this.onLongPress, this.selected = false});
+
+  final MediaEntity media;
+  final VoidCallback onOpen;
+  final VoidCallback? onLongPress;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final watched = media.durationMs > 0 ? (media.lastPositionMs / media.durationMs).clamp(0.0, 1.0) : 0.0;
+    final details = [
+      if (media.channel.isNotEmpty) media.channel,
+      if (media.durationMs > 0) formatDuration(media.durationMs ~/ 1000),
+    ].join(' · ');
+    return InkWell(
+      borderRadius: cardRadius,
+      onTap: onOpen,
+      onLongPress: onLongPress,
+      child: Container(
+        decoration: cardDecoration(selected: selected),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              child: AspectRatio(
+                aspectRatio: 16 / 9,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    media.thumbnailUrl.startsWith('http')
+                        ? Image.network(
+                            media.thumbnailUrl,
+                            fit: BoxFit.cover,
+                            cacheWidth: 480,
+                            errorBuilder: (_, _, _) => const ColoredBox(color: Palette.surface2),
+                          )
+                        : ColoredBox(
+                            color: Palette.surface2,
+                            child: Icon(media.isAudioOnly ? Icons.music_note : Icons.movie, color: Palette.textSoft),
+                          ),
+                    if (watched > 0.02)
+                      Align(
+                        alignment: Alignment.bottomLeft,
+                        child: FractionallySizedBox(
+                          widthFactor: watched,
+                          child: Container(height: 3, color: Palette.red),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    media.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w800, height: 1.2),
+                  ),
+                  if (details.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      details,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: Palette.textSoft, fontSize: 12),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

@@ -15,6 +15,7 @@ abstract class DownloadEngine {
     bool subtitles = false,
     String subLangs = 'en',
     bool sponsorBlock = false,
+    bool notify = true,
   });
   Future<bool> cancel(String taskId);
   Future<bool> pause(String taskId);
@@ -26,5 +27,6 @@ abstract class DownloadEngine {
   Future<void> open(String uri);
   Future<String> playable(String uri);
   Future<String> previewUrl(String url);
+  Future<void> openUrl(String url);
   Future<List<Map<String, dynamic>>> scanFolder(String folder);
 }

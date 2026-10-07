@@ -44,6 +44,7 @@ dependencies:
   media_kit_libs_windows_video: ^1.0.11
   video_player: ^2.14.1
   window_manager: ^0.5.2
+  audio_service: ^0.18.19
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -6,73 +6,44 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
 
-import '../../../core/db/app_database.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/labels.dart';
-import '../../download/application/download_queue_provider.dart';
-import '../../engine/engine_service.dart';
+import '../playback_controller.dart';
 import '../player_backend.dart';
 
 class PlayerScreen extends ConsumerStatefulWidget {
-  const PlayerScreen({super.key, required this.media});
-
-  final MediaEntity media;
+  const PlayerScreen({super.key});
 
   @override
   ConsumerState<PlayerScreen> createState() => _PlayerScreenState();
 }
 
 class _PlayerScreenState extends ConsumerState<PlayerScreen> {
-  late final AppDatabase _db;
-  final PlayerBackend _player = PlayerBackend();
   final FocusNode _focus = FocusNode();
   Timer? _hideTimer;
   Timer? _flashTimer;
   bool _controls = true;
   bool _fullscreen = false;
   bool _boost = false;
-  bool _loop = false;
-  double _rate = 1.0;
   double? _drag;
   double _tapX = 0;
   String? _flash;
-  String? _error;
 
   static const _white = TextStyle(color: Colors.white, fontWeight: FontWeight.w600);
+
+  PlaybackController get _ctl => ref.read(playbackProvider.notifier);
+  PlayerBackend? get _player => ref.read(playbackProvider).player;
 
   @override
   void initState() {
     super.initState();
-    _db = ref.read(databaseProvider);
-    _open();
     _bump();
-  }
-
-  Future<void> _open() async {
-    try {
-      final uri = widget.media.contentUri;
-      await _player.open(Platform.isAndroid ? uri : await ref.read(engineProvider).playable(uri));
-      final resume = widget.media.lastPositionMs;
-      if (resume > 2000) {
-        if (_player.duration == Duration.zero) {
-          await _player.changes
-              .firstWhere((_) => _player.duration > Duration.zero)
-              .timeout(const Duration(seconds: 10));
-        }
-        final d = _player.duration;
-        if (resume < d.inMilliseconds - 3000) await _player.seek(Duration(milliseconds: resume));
-      }
-    } catch (_) {
-      if (mounted) setState(() => _error = 'Cannot open file');
-    }
   }
 
   @override
   void dispose() {
-    _db.savePosition(widget.media.id, _player.position.inMilliseconds);
     _hideTimer?.cancel();
     _flashTimer?.cancel();
-    _player.dispose();
     _focus.dispose();
     if (_fullscreen) _restoreSystemUi();
     super.dispose();
@@ -82,7 +53,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     _hideTimer?.cancel();
     if (!_controls) setState(() => _controls = true);
     _hideTimer = Timer(const Duration(seconds: 3), () {
-      if (mounted && _player.playing && _drag == null) setState(() => _controls = false);
+      if (mounted && (_player?.playing ?? false) && _drag == null) setState(() => _controls = false);
     });
   }
 
@@ -104,22 +75,18 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   }
 
   void _seekBy(int seconds) {
-    final dur = _player.duration;
-    var target = _player.position + Duration(seconds: seconds);
+    final p = _player;
+    if (p == null) return;
+    var target = p.position + Duration(seconds: seconds);
     if (target < Duration.zero) target = Duration.zero;
-    if (dur > Duration.zero && target > dur) target = dur;
-    _player.seek(target);
+    if (p.duration > Duration.zero && target > p.duration) target = p.duration;
+    p.seek(target);
     _showFlash(seconds > 0 ? '+$seconds' : '$seconds');
   }
 
   void _togglePlay() {
-    _player.playOrPause();
+    _player?.playOrPause();
     _bump();
-  }
-
-  void _setRate(double v) {
-    setState(() => _rate = double.parse(v.toStringAsFixed(2)));
-    _player.setRate(_rate);
   }
 
   Future<void> _toggleFullscreen() async {
@@ -149,43 +116,87 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     _hideTimer?.cancel();
     await showModalBottomSheet<void>(
       context: context,
-      backgroundColor: Palette.surface,
-      showDragHandle: true,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSheet) {
-          final subs = _player.subtitles;
-          final current = _player.subtitle;
+      isScrollControlled: true,
+      builder: (ctx) => Consumer(
+        builder: (ctx, ref, _) {
+          final s = ref.watch(playbackProvider);
+          final p = s.player;
+          final subs = p?.subtitles ?? const [];
+          final current = p?.subtitle ?? 'no';
+          final sleepLeft = s.sleepAt?.difference(DateTime.now());
           return SafeArea(
-            child: Padding(
+            child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Speed  ${_rate.toStringAsFixed(2)}x', style: _white),
+                  Text('Speed  ${s.rate.toStringAsFixed(2)}x', style: _white),
                   Slider(
                     min: 0.25,
                     max: 2,
                     divisions: 35,
-                    value: _rate,
-                    activeColor: Palette.blue,
-                    onChanged: (v) {
-                      _setRate(v);
-                      setSheet(() {});
-                    },
+                    value: s.rate,
+                    onChanged: (v) => _ctl.setRate(double.parse(v.toStringAsFixed(2))),
                   ),
                   Wrap(
                     spacing: 8,
                     children: [
                       for (final r in [0.5, 0.75, 1.0, 1.25, 1.5, 2.0])
+                        ChoiceChip(label: Text('${r}x'), selected: s.rate == r, onSelected: (_) => _ctl.setRate(r)),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  const Text('Repeat', style: _white),
+                  const SizedBox(height: 8),
+                  SegmentedButton<LoopMode>(
+                    showSelectedIcon: false,
+                    segments: const [
+                      ButtonSegment(value: LoopMode.off, label: Text('Off')),
+                      ButtonSegment(value: LoopMode.all, label: Text('All')),
+                      ButtonSegment(value: LoopMode.one, label: Text('One')),
+                    ],
+                    selected: {s.repeat},
+                    onSelectionChanged: (v) => _ctl.setRepeat(v.first),
+                  ),
+                  Material(
+                    type: MaterialType.transparency,
+                    child: SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Shuffle', style: _white),
+                      value: s.shuffle,
+                      onChanged: (_) => _ctl.toggleShuffle(),
+                    ),
+                  ),
+                  Text(
+                    s.sleepAtEnd
+                        ? 'Sleep timer  end of video'
+                        : sleepLeft != null
+                        ? 'Sleep timer  ${formatDuration(sleepLeft.inSeconds)} left'
+                        : 'Sleep timer',
+                    style: _white,
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      ChoiceChip(
+                        label: const Text('Off'),
+                        selected: s.sleepAt == null && !s.sleepAtEnd,
+                        onSelected: (_) => _ctl.setSleep(null),
+                      ),
+                      for (final m in [15, 30, 60])
                         ChoiceChip(
-                          label: Text('${r}x'),
-                          selected: _rate == r,
-                          onSelected: (_) {
-                            _setRate(r);
-                            setSheet(() {});
-                          },
+                          label: Text('$m min'),
+                          selected: false,
+                          onSelected: (_) => _ctl.setSleep(Duration(minutes: m)),
                         ),
+                      ChoiceChip(
+                        label: const Text('End of video'),
+                        selected: s.sleepAtEnd,
+                        onSelected: (_) => _ctl.setSleep(null, endOfVideo: true),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 18),
@@ -198,19 +209,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                       ChoiceChip(
                         label: const Text('Off'),
                         selected: current == 'no',
-                        onSelected: (_) async {
-                          await _player.setSubtitle('no');
-                          setSheet(() {});
-                        },
+                        onSelected: (_) => p?.setSubtitle('no'),
                       ),
                       for (final t in subs)
                         ChoiceChip(
                           label: Text(t.$2),
                           selected: current == t.$1,
-                          onSelected: (_) async {
-                            await _player.setSubtitle(t.$1);
-                            setSheet(() {});
-                          },
+                          onSelected: (_) => p?.setSubtitle(t.$1),
                         ),
                     ],
                   ),
@@ -219,20 +224,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                       padding: const EdgeInsets.only(top: 6),
                       child: Text('None in this file', style: _white.copyWith(color: Colors.white54)),
                     ),
-                  const SizedBox(height: 10),
-                  Material(
-                    type: MaterialType.transparency,
-                    child: SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Loop', style: _white),
-                      value: _loop,
-                      onChanged: (v) {
-                        setState(() => _loop = v);
-                        _player.setLoop(v);
-                        setSheet(() {});
-                      },
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -252,7 +243,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     ),
   );
 
-  Widget _overlay() {
+  Widget _overlay(PlaybackInfo s, PlayerBackend p) {
     return DecoratedBox(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
@@ -268,51 +259,63 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
             children: [
               IconButton(
                 color: Colors.white,
-                icon: const Icon(Icons.arrow_back),
+                icon: const Icon(Icons.keyboard_arrow_down),
                 onPressed: () => Navigator.pop(context),
               ),
               Expanded(
-                child: Text(widget.media.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: _white),
+                child: Text(s.current?.title ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: _white),
               ),
               IconButton(color: Colors.white, icon: const Icon(Icons.settings), onPressed: _openSettings),
             ],
           ),
           const Spacer(),
           StreamBuilder<void>(
-            stream: _player.changes,
+            stream: p.changes,
             builder: (_, _) => Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 IconButton(
-                  iconSize: 36,
+                  iconSize: 30,
+                  color: Colors.white,
+                  icon: const Icon(Icons.skip_previous),
+                  onPressed: _ctl.previous,
+                ),
+                IconButton(
+                  iconSize: 32,
                   color: Colors.white,
                   icon: const Icon(Icons.replay_10),
                   onPressed: () => _seekBy(-10),
                 ),
-                const SizedBox(width: 24),
+                const SizedBox(width: 12),
                 IconButton.filled(
                   iconSize: 44,
                   style: IconButton.styleFrom(backgroundColor: Palette.blue, foregroundColor: Colors.white),
-                  icon: Icon(_player.playing ? Icons.pause : Icons.play_arrow),
+                  icon: Icon(p.playing ? Icons.pause : Icons.play_arrow),
                   onPressed: _togglePlay,
                 ),
-                const SizedBox(width: 24),
+                const SizedBox(width: 12),
                 IconButton(
-                  iconSize: 36,
+                  iconSize: 32,
                   color: Colors.white,
                   icon: const Icon(Icons.forward_10),
                   onPressed: () => _seekBy(10),
+                ),
+                IconButton(
+                  iconSize: 30,
+                  color: Colors.white,
+                  icon: const Icon(Icons.skip_next),
+                  onPressed: s.hasNext ? () => _ctl.next() : null,
                 ),
               ],
             ),
           ),
           const Spacer(),
           StreamBuilder<void>(
-            stream: _player.changes,
+            stream: p.changes,
             builder: (context, _) {
-              final total = _player.duration.inMilliseconds.toDouble();
+              final total = p.duration.inMilliseconds.toDouble();
               final max = total > 0 ? total : 1.0;
-              final pos = (_drag ?? _player.position.inMilliseconds.toDouble()).clamp(0.0, max);
+              final pos = (_drag ?? p.position.inMilliseconds.toDouble()).clamp(0.0, max);
               return Padding(
                 padding: const EdgeInsets.fromLTRB(12, 0, 4, 8),
                 child: Row(
@@ -333,7 +336,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                           onChangeStart: (_) => _hideTimer?.cancel(),
                           onChanged: (v) => setState(() => _drag = v),
                           onChangeEnd: (v) {
-                            _player.seek(Duration(milliseconds: v.round()));
+                            p.seek(Duration(milliseconds: v.round()));
                             setState(() => _drag = null);
                             _bump();
                           },
@@ -358,7 +361,17 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final m = widget.media;
+    final s = ref.watch(playbackProvider);
+    final p = s.player;
+    final m = s.current;
+
+    if (p == null || m == null) {
+      return const Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     final stage = LayoutBuilder(
       builder: (context, box) => GestureDetector(
         behavior: HitTestBehavior.opaque,
@@ -367,16 +380,16 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         onDoubleTap: () => Platform.isWindows ? _toggleFullscreen() : _seekBy(_tapX < box.maxWidth / 2 ? -10 : 10),
         onLongPressStart: (_) {
           setState(() => _boost = true);
-          _player.setRate(2);
+          p.setRate(2);
         },
         onLongPressEnd: (_) {
           setState(() => _boost = false);
-          _player.setRate(_rate);
+          p.setRate(s.rate);
         },
         child: Stack(
           fit: StackFit.expand,
           children: [
-            if (m.isAudioOnly && m.thumbnailUrl.isNotEmpty)
+            if (m.isAudioOnly && m.thumbnailUrl.startsWith('http'))
               Center(
                 child: Padding(
                   padding: const EdgeInsets.all(32),
@@ -386,7 +399,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                   ),
                 ),
               ),
-            _player.view(),
+            KeyedSubtree(key: ValueKey(p), child: p.view()),
             if (_flash != null) Center(child: _pill(_flash!)),
             if (_boost)
               Align(
@@ -396,9 +409,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
             AnimatedOpacity(
               opacity: _controls ? 1 : 0,
               duration: const Duration(milliseconds: 200),
-              child: IgnorePointer(ignoring: !_controls, child: _overlay()),
+              child: IgnorePointer(ignoring: !_controls, child: _overlay(s, p)),
             ),
-            if (_error != null) Center(child: Text(_error!, style: _white)),
+            if (s.error != null) Center(child: Text(s.error!, style: _white)),
           ],
         ),
       ),
@@ -412,7 +425,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         const SingleActivator(LogicalKeyboardKey.arrowRight): () => _seekBy(5),
         const SingleActivator(LogicalKeyboardKey.keyJ): () => _seekBy(-10),
         const SingleActivator(LogicalKeyboardKey.keyL): () => _seekBy(10),
-        const SingleActivator(LogicalKeyboardKey.keyM): _player.toggleMute,
+        const SingleActivator(LogicalKeyboardKey.keyN): () => _ctl.next(),
+        const SingleActivator(LogicalKeyboardKey.keyP): _ctl.previous,
+        const SingleActivator(LogicalKeyboardKey.keyM): () => _player?.toggleMute(),
         const SingleActivator(LogicalKeyboardKey.keyF): _toggleFullscreen,
         const SingleActivator(LogicalKeyboardKey.escape): () {
           if (_fullscreen) {

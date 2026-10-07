@@ -19,6 +19,9 @@ class AppSettings {
     this.subtitles = false,
     this.subLangs = 'en',
     this.sponsorBlock = false,
+    this.notifications = true,
+    this.playbackNotification = true,
+    this.checkUpdates = true,
   });
 
   final String defaultQuality;
@@ -30,6 +33,9 @@ class AppSettings {
   final bool subtitles;
   final String subLangs;
   final bool sponsorBlock;
+  final bool notifications;
+  final bool playbackNotification;
+  final bool checkUpdates;
 
   AppSettings copyWith({
     String? defaultQuality,
@@ -41,6 +47,9 @@ class AppSettings {
     bool? subtitles,
     String? subLangs,
     bool? sponsorBlock,
+    bool? notifications,
+    bool? playbackNotification,
+    bool? checkUpdates,
   }) => AppSettings(
     defaultQuality: defaultQuality ?? this.defaultQuality,
     maxConcurrent: maxConcurrent ?? this.maxConcurrent,
@@ -51,6 +60,9 @@ class AppSettings {
     subtitles: subtitles ?? this.subtitles,
     subLangs: subLangs ?? this.subLangs,
     sponsorBlock: sponsorBlock ?? this.sponsorBlock,
+    notifications: notifications ?? this.notifications,
+    playbackNotification: playbackNotification ?? this.playbackNotification,
+    checkUpdates: checkUpdates ?? this.checkUpdates,
   );
 
   Map<String, Object> toJson() => {
@@ -63,6 +75,9 @@ class AppSettings {
     'subtitles': subtitles,
     'subLangs': subLangs,
     'sponsorBlock': sponsorBlock,
+    'notifications': notifications,
+    'playbackNotification': playbackNotification,
+    'checkUpdates': checkUpdates,
   };
 
   factory AppSettings.fromJson(Map<String, dynamic> j) => AppSettings(
@@ -75,6 +90,9 @@ class AppSettings {
     subtitles: j['subtitles'] as bool? ?? false,
     subLangs: j['subLangs'] as String? ?? 'en',
     sponsorBlock: j['sponsorBlock'] as bool? ?? false,
+    notifications: j['notifications'] as bool? ?? true,
+    playbackNotification: j['playbackNotification'] as bool? ?? true,
+    checkUpdates: j['checkUpdates'] as bool? ?? true,
   );
 }
 

@@ -254,6 +254,7 @@ class DownloadQueueNotifier extends Notifier<List<DownloadTask>> {
             subtitles: ref.read(settingsProvider).subtitles,
             subLangs: ref.read(settingsProvider).subLangs,
             sponsorBlock: ref.read(settingsProvider).sponsorBlock,
+            notify: ref.read(settingsProvider).notifications,
           );
     } catch (e) {
       await _fail(t.id, friendlyError(e));

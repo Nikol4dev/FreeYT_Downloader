@@ -137,6 +137,12 @@ class AppDatabase extends _$AppDatabase {
   Future<void> savePosition(int id, int positionMs) =>
       (update(mediaFiles)..where((t) => t.id.equals(id))).write(MediaFilesCompanion(lastPositionMs: Value(positionMs)));
 
+  Future<MediaEntity?> mediaById(int id) => (select(mediaFiles)..where((t) => t.id.equals(id))).getSingleOrNull();
+
+  Future<void> updateDetails(int id, String title, String channel) => (update(
+    mediaFiles,
+  )..where((t) => t.id.equals(id))).write(MediaFilesCompanion(title: Value(title), channel: Value(channel)));
+
   Future<void> setFavorite(int id, bool value) =>
       (update(mediaFiles)..where((t) => t.id.equals(id))).write(MediaFilesCompanion(isFavorite: Value(value)));
 

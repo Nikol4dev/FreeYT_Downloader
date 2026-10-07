@@ -7,13 +7,13 @@ import android.os.Looper
 import androidx.core.content.ContextCompat
 import com.yausername.youtubedl_android.YoutubeDL
 import com.yausername.youtubedl_android.YoutubeDLRequest
-import io.flutter.embedding.android.FlutterActivity
+import com.ryanheise.audioservice.AudioServiceActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import java.util.concurrent.Executors
 
-class MainActivity : FlutterActivity() {
+class MainActivity : AudioServiceActivity() {
     private val methodChannelName = "com.premium.downloader/ytdlp"
     private val eventChannelName = "com.premium.downloader/progress"
 
@@ -83,6 +83,7 @@ class MainActivity : FlutterActivity() {
                             putExtra("subtitles", call.argument<Boolean>("subtitles") ?: false)
                             putExtra("subLangs", call.argument<String>("subLangs"))
                             putExtra("sponsorBlock", call.argument<Boolean>("sponsorBlock") ?: false)
+                            putExtra("notify", call.argument<Boolean>("notify") ?: true)
                         }
                         ContextCompat.startForegroundService(this, intent)
                         result.success(true)
@@ -141,6 +142,15 @@ class MainActivity : FlutterActivity() {
                                 main.post { result.success(items) }
                             }
                         }
+                    }
+                }
+
+                "openUrl" -> {
+                    try {
+                        startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(call.argument<String>("url") ?: "")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.success(false)
                     }
                 }
 

@@ -39,6 +39,7 @@ class AndroidEngine implements DownloadEngine {
     bool subtitles = false,
     String subLangs = 'en',
     bool sponsorBlock = false,
+    bool notify = true,
   }) => _method.invokeMethod('startDownload', {
     'taskId': taskId,
     'url': url,
@@ -50,6 +51,7 @@ class AndroidEngine implements DownloadEngine {
     'subtitles': subtitles,
     'subLangs': subLangs,
     'sponsorBlock': sponsorBlock,
+    'notify': notify,
   });
 
   @override
@@ -58,6 +60,9 @@ class AndroidEngine implements DownloadEngine {
     if (raw == null) throw Exception('Allow access, then tap Import again');
     return [for (final e in raw) Map<String, dynamic>.from(e as Map)];
   }
+
+  @override
+  Future<void> openUrl(String url) => _method.invokeMethod('openUrl', {'url': url});
 
   @override
   Future<String> previewUrl(String url) async {

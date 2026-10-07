@@ -79,6 +79,7 @@ class DownloadForegroundService : Service() {
 
     private fun runDownload(taskId: String, url: String, title: String, quality: String, folder: String, opts: android.os.Bundle) {
         val notifId = taskId.hashCode()
+        val notify = opts.getBoolean("notify", true)
         val nm = getSystemService(NotificationManager::class.java)
         val workDir = File(getExternalFilesDir(null), "TempDownloads/$taskId").apply { mkdirs() }
         val isAudio = quality.startsWith("Audio", ignoreCase = true)
@@ -86,7 +87,7 @@ class DownloadForegroundService : Service() {
         try {
             YtDlpEngine.ensureInit(this)
             emit(taskId, "downloading", 0.0)
-            nm.notify(notifId, progressNotification(taskId, title, 0))
+            if (notify) nm.notify(notifId, progressNotification(taskId, title, 0))
 
             val tracker = ProgressTracker(if (isAudio) 1 else 2)
             var lastPct = -1
@@ -96,7 +97,7 @@ class DownloadForegroundService : Service() {
                 val pct = (overall * 100).toInt()
                 if (pct != lastPct) {
                     lastPct = pct
-                    nm.notify(notifId, progressNotification(taskId, title, pct))
+                    if (notify) nm.notify(notifId, progressNotification(taskId, title, pct))
                     emit(taskId, "downloading", overall.toDouble(), mapOf("eta" to eta, "speed" to (SPEED.find(line)?.groupValues?.get(1) ?: "")))
                 }
             }
@@ -109,7 +110,7 @@ class DownloadForegroundService : Service() {
             val (uri, size) = saveToMediaStore(output, title, isAudio, folder)
             workDir.deleteRecursively()
 
-            nm.notify(notifId, resultNotification(title, "Download complete", ok = true))
+            if (notify) nm.notify(notifId, resultNotification(title, "Download complete", ok = true, uri = uri))
             emit(taskId, "success", 1.0, mapOf("uri" to uri, "sizeBytes" to size))
         } catch (e: Exception) {
             if (YtDlpEngine.paused.remove(taskId)) {
@@ -120,7 +121,7 @@ class DownloadForegroundService : Service() {
                 nm.cancel(notifId)
                 emit(taskId, "cancelled")
             } else {
-                nm.notify(notifId, resultNotification(title, "Download failed", ok = false))
+                if (notify) nm.notify(notifId, resultNotification(title, "Download failed", ok = false))
                 emit(taskId, "error", 0.0, mapOf("message" to (e.message ?: e.toString())))
             }
         } finally {
@@ -280,13 +281,23 @@ class DownloadForegroundService : Service() {
             .build()
     }
 
-    private fun resultNotification(title: String, text: String, ok: Boolean): Notification =
+    private fun openFileIntent(uri: String?): PendingIntent? {
+        if (uri == null || !uri.startsWith("content://")) return null
+        val u = Uri.parse(uri)
+        val view = Intent(Intent.ACTION_VIEW)
+            .setDataAndType(u, contentResolver.getType(u) ?: "video/*")
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+        return PendingIntent.getActivity(this, uri.hashCode(), view, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+    }
+
+    private fun resultNotification(title: String, text: String, ok: Boolean, uri: String? = null): Notification =
         NotificationCompat.Builder(this, CH_RESULT)
             .setContentTitle(title)
             .setContentText(text)
             .setSmallIcon(if (ok) android.R.drawable.stat_sys_download_done else android.R.drawable.stat_notify_error)
             .setAutoCancel(true)
             .setContentIntent(openAppIntent())
+            .apply { openFileIntent(uri)?.let { addAction(0, "Open", it) } }
             .build()
 
     private fun openAppIntent(): PendingIntent? =

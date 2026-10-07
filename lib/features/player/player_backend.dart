@@ -113,11 +113,12 @@ class _NativeBackend implements PlayerBackend {
   @override
   Future<void> open(String source) async {
     final uri = Uri.parse(source);
+    final options = vp.VideoPlayerOptions(allowBackgroundPlayback: true);
     final c = uri.scheme == 'content'
-        ? vp.VideoPlayerController.contentUri(uri)
+        ? vp.VideoPlayerController.contentUri(uri, videoPlayerOptions: options)
         : uri.scheme.startsWith('http')
-        ? vp.VideoPlayerController.networkUrl(uri)
-        : vp.VideoPlayerController.file(File(uri.toFilePath()));
+        ? vp.VideoPlayerController.networkUrl(uri, videoPlayerOptions: options)
+        : vp.VideoPlayerController.file(File(uri.toFilePath()), videoPlayerOptions: options);
     _c = c;
     c.addListener(_tick);
     await c.initialize();

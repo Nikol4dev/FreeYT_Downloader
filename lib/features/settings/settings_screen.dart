@@ -1,6 +1,9 @@
 import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
+
+import '../../core/app_info.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme.dart';
@@ -128,6 +131,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
           ]),
           _card([
+            _switch('Download notifications', s.notifications, (v) => notifier.change(s.copyWith(notifications: v))),
+            _switch(
+              'Playback controls',
+              s.playbackNotification,
+              (v) => notifier.change(s.copyWith(playbackNotification: v)),
+            ),
+            _switch('Check for updates', s.checkUpdates, (v) => notifier.change(s.copyWith(checkUpdates: v))),
+          ]),
+          _card([
             _switch('Auto-fetch', s.autoFetch, (v) => notifier.change(s.copyWith(autoFetch: v))),
             _switch('Auto-update engine', s.autoUpdateEngine, (v) => notifier.change(s.copyWith(autoUpdateEngine: v))),
             const SizedBox(height: 8),
@@ -142,6 +154,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               child: Text(_updating ? 'Updating' : 'Update engine'),
             ),
           ]),
+          Center(
+            child: Text('Version $appVersion', style: text.bodySmall?.copyWith(color: Palette.textSoft)),
+          ),
         ],
       ),
     );

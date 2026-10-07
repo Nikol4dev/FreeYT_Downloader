@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -61,12 +63,38 @@ class PlaylistScreen extends ConsumerWidget {
                 )
               : ListView.builder(
                   padding: const EdgeInsets.fromLTRB(22, 8, 22, 24),
-                  itemCount: list.length,
-                  itemBuilder: (_, i) {
+                  itemCount: list.length + 1,
+                  itemBuilder: (_, index) {
+                    if (index == 0) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: FilledButton.icon(
+                                icon: const Icon(Icons.play_arrow),
+                                label: const Text('Play'),
+                                onPressed: () => openMedia(context, ref, list, 0),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                icon: const Icon(Icons.shuffle),
+                                label: const Text('Shuffle'),
+                                onPressed: () =>
+                                    openMedia(context, ref, list, Random().nextInt(list.length), shuffle: true),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+                    final i = index - 1;
                     final m = list[i];
                     return MediaTile(
                       media: m,
-                      onOpen: () => openMedia(context, ref, m),
+                      onOpen: () => openMedia(context, ref, list, i),
                       onFavorite: () => db.setFavorite(m.id, !m.isFavorite),
                       menu: {'Remove from playlist': () => db.removeFromPlaylist(playlist.id, m.id)},
                     );

@@ -11,6 +11,7 @@ import '../../../widgets/playlist_sheet.dart';
 import '../../../widgets/pre_download_sheet.dart';
 import '../../engine/engine_service.dart';
 import '../../settings/settings_provider.dart';
+import '../../settings/update_check.dart';
 import '../application/download_queue_provider.dart';
 import 'download_task_tile.dart';
 
@@ -25,6 +26,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
   final _controller = TextEditingController();
   bool _isInspecting = false;
   bool _isUpdating = false;
+  bool _hideUpdate = false;
   String? _error;
   String? _clipboardLink;
   String? _lastOfferedLink;
@@ -184,6 +186,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
   @override
   Widget build(BuildContext context) {
     final tasks = ref.watch(downloadQueueProvider);
+    final update = ref.watch(updateProvider).asData?.value;
     final hasFinished = tasks.any((t) => !t.isActive);
     final text = Theme.of(context).textTheme;
 
@@ -231,6 +234,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
                 ],
               ),
               const SizedBox(height: 22),
+              if (update != null && !_hideUpdate)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 14),
+                  padding: const EdgeInsets.fromLTRB(14, 6, 4, 6),
+                  decoration: cardDecoration(selected: true),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.system_update, color: Palette.blue),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Version ${update.version} is available',
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => ref.read(engineProvider).openUrl(update.url),
+                        child: const Text('Get'),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 18),
+                        onPressed: () => setState(() => _hideUpdate = true),
+                      ),
+                    ],
+                  ),
+                ),
               Container(
                 decoration: fieldDecoration(),
                 child: TextField(

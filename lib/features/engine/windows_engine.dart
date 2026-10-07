@@ -171,6 +171,7 @@ class WindowsEngine implements DownloadEngine {
     bool subtitles = false,
     String subLangs = 'en',
     bool sponsorBlock = false,
+    bool notify = true,
   }) async {
     unawaited(_run(taskId, url, title, quality, folder, section, exactCut, subtitles, subLangs, sponsorBlock));
   }
@@ -200,6 +201,11 @@ class WindowsEngine implements DownloadEngine {
       }
     }
     return items;
+  }
+
+  @override
+  Future<void> openUrl(String url) async {
+    await Process.run('rundll32', ['url.dll,FileProtocolHandler', url]);
   }
 
   @override

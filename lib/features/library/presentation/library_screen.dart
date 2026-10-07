@@ -35,6 +35,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   LibrarySort _sort = LibrarySort.recent;
   bool _favorites = false;
   int _tab = 0;
+  bool _grid = false;
   final Set<int> _picked = {};
   List<MediaEntity> _shown = const [];
 
@@ -177,7 +178,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               final f = (m.lastPositionMs / m.durationMs).clamp(0.0, 1.0);
               return InkWell(
                 borderRadius: BorderRadius.circular(10),
-                onTap: () => openMedia(context, ref, m),
+                onTap: () => openMedia(context, ref, [m], 0),
                 child: SizedBox(
                   width: 160,
                   child: Column(
@@ -226,6 +227,58 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
         ),
       ],
     ),
+  );
+
+  Future<void> _edit(MediaEntity m) async {
+    final title = TextEditingController(text: m.title);
+    final channel = TextEditingController(text: m.channel);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Edit'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: title,
+              decoration: const InputDecoration(labelText: 'Title'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: channel,
+              decoration: const InputDecoration(labelText: 'Channel'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Save')),
+        ],
+      ),
+    );
+    if (ok == true && title.text.trim().isNotEmpty) {
+      await ref.read(databaseProvider).updateDetails(m.id, title.text.trim(), channel.text.trim());
+    }
+  }
+
+  Widget _gridView(List<MediaEntity> data) => GridView.builder(
+    padding: const EdgeInsets.only(bottom: 24),
+    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+      maxCrossAxisExtent: 240,
+      mainAxisSpacing: 14,
+      crossAxisSpacing: 14,
+      childAspectRatio: 0.95,
+    ),
+    itemCount: data.length,
+    itemBuilder: (_, i) {
+      final m = data[i];
+      return MediaCard(
+        media: m,
+        selected: _picked.contains(m.id),
+        onOpen: () => _picked.isEmpty ? openMedia(context, ref, data, i) : _toggle(m.id),
+        onLongPress: () => _toggle(m.id),
+      );
+    },
   );
 
   Future<void> _newPlaylist() async {
@@ -285,9 +338,20 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               onSelected: (v) => setState(() => _favorites = v),
             ),
             const Spacer(),
-            Text(
-              '${list.length} · ${formatSize(total)}',
-              style: text.bodySmall?.copyWith(color: Palette.textSoft, fontWeight: FontWeight.w600),
+            IconButton(
+              tooltip: _grid ? 'List' : 'Grid',
+              icon: Icon(_grid ? Icons.view_list : Icons.grid_view),
+              onPressed: () => setState(() => _grid = !_grid),
+            ),
+            Tooltip(
+              message: 'Biggest first',
+              child: TextButton(
+                onPressed: () => setState(() => _sort = LibrarySort.size),
+                child: Text(
+                  '${list.length} · ${formatSize(total)}',
+                  style: text.bodySmall?.copyWith(color: Palette.textSoft, fontWeight: FontWeight.w600),
+                ),
+              ),
             ),
           ],
         ),
@@ -301,6 +365,8 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                     _query.isEmpty && !_favorites ? 'Empty' : 'No results',
                     style: text.bodyMedium?.copyWith(color: Palette.textSoft),
                   )
+                : _grid
+                ? _gridView(data)
                 : ListView.builder(
                     padding: const EdgeInsets.only(bottom: 24),
                     itemCount: data.length + (_resume(data).isEmpty ? 0 : 1),
@@ -321,7 +387,8 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                         ),
                         child: MediaTile(
                           media: m,
-                          onOpen: () => _picked.isEmpty ? openMedia(context, ref, m) : _toggle(m.id),
+                          onOpen: () =>
+                              _picked.isEmpty ? openMedia(context, ref, data, data.indexOf(m)) : _toggle(m.id),
                           onLongPress: () => _toggle(m.id),
                           selected: _picked.contains(m.id),
                           onFavorite: () => ref.read(databaseProvider).setFavorite(m.id, !m.isFavorite),
@@ -329,6 +396,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                             'Add to playlist': () => addToPlaylist(context, ref, [m]),
                             if (!Platform.isAndroid)
                               'Show in folder': () => ref.read(engineProvider).open(m.contentUri),
+                            'Edit': () => _edit(m),
                             'Delete': () => _confirmDelete(m),
                           },
                         ),
