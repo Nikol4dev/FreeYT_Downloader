@@ -12,6 +12,7 @@ import '../../../widgets/pre_download_sheet.dart';
 import '../../engine/engine_service.dart';
 import '../../settings/settings_provider.dart';
 import '../../settings/update_check.dart';
+import '../../tab_provider.dart';
 import '../application/download_queue_provider.dart';
 import 'download_task_tile.dart';
 
@@ -23,6 +24,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObserver {
+  StreamSubscription<String>? _shareSub;
   final _controller = TextEditingController();
   bool _isInspecting = false;
   bool _isUpdating = false;
@@ -36,12 +38,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     ref.read(settingsProvider);
+    _shareSub = ref.read(engineProvider).sharedLinks.listen(_handleShared);
     unawaited(_checkClipboard());
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _shareSub?.cancel();
     _controller.dispose();
     super.dispose();
   }
@@ -51,17 +55,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
     if (state == AppLifecycleState.resumed) unawaited(_checkClipboard());
   }
 
+  Future<void> _handleShared(String text) async {
+    if (!mounted || text.trim().isEmpty) return;
+    Navigator.of(context).popUntil((r) => r.isFirst);
+    ref.read(tabProvider.notifier).show(0);
+    final many = _videoLinks(text);
+    if (many.length > 1) {
+      await _batch(many);
+      return;
+    }
+    _controller.text = YoutubeUrl.findInText(text) ?? text.trim();
+    await _inspectUrl();
+  }
+
   Future<void> _checkClipboard() async {
     final shared = await ref.read(engineProvider).takeSharedText();
     if (shared != null && shared.trim().isNotEmpty) {
-      if (!mounted) return;
-      final many = _videoLinks(shared);
-      if (many.length > 1) {
-        await _batch(many);
-        return;
-      }
-      _controller.text = YoutubeUrl.findInText(shared) ?? shared.trim();
-      _inspectUrl();
+      await _handleShared(shared);
       return;
     }
     final data = await Clipboard.getData(Clipboard.kTextPlain);

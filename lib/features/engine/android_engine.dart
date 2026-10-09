@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 
 import '../../models/video_metadata.dart';
@@ -6,6 +8,16 @@ import 'engine.dart';
 class AndroidEngine implements DownloadEngine {
   static const _method = MethodChannel('com.premium.downloader/ytdlp');
   static const _events = EventChannel('com.premium.downloader/progress');
+  final _shared = StreamController<String>.broadcast();
+
+  AndroidEngine() {
+    _method.setMethodCallHandler((call) async {
+      if (call.method == 'shared' && call.arguments is String) _shared.add(call.arguments as String);
+    });
+  }
+
+  @override
+  Stream<String> get sharedLinks => _shared.stream;
 
   @override
   Stream<Map<String, dynamic>> get events =>

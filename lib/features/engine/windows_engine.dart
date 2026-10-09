@@ -12,6 +12,9 @@ class WindowsEngine implements DownloadEngine {
   final _events = StreamController<Map<String, dynamic>>.broadcast();
   final _procs = <String, Process>{};
   final _cancelled = <String>{};
+
+  @override
+  Stream<String> get sharedLinks => const Stream.empty();
   final _paused = <String>{};
 
   @override
@@ -225,7 +228,8 @@ class WindowsEngine implements DownloadEngine {
         .firstWhere((l) => l.startsWith('http'), orElse: () => throw Exception('No preview available'));
   }
 
-  static const _previewFormat = '18/best[height<=480][vcodec!=none][acodec!=none]/best[vcodec!=none][acodec!=none]';
+  static const _previewFormat =
+      '18/best[height<=480][vcodec!=none][acodec!=none]/best[height<=480][vcodec^=avc1]/best[height<=720][vcodec!=none]';
 
   @override
   Future<String> playable(String uri) async => Uri.parse(uri).toFilePath(windows: true);

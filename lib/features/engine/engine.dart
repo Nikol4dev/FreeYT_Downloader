@@ -2,6 +2,7 @@ import '../../models/video_metadata.dart';
 
 abstract class DownloadEngine {
   Stream<Map<String, dynamic>> get events;
+  Stream<String> get sharedLinks;
   Future<VideoMetadata> fetchInfo(String url);
   Future<PlaylistInfo> fetchPlaylist(String url);
   Future<void> start({

@@ -61,7 +61,12 @@ class _PlaylistSheetState extends ConsumerState<PlaylistSheet> {
     final all = _selected.length == entries.length;
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(22, 4, 22, MediaQuery.of(context).viewInsets.bottom + 24),
+      padding: EdgeInsets.fromLTRB(
+        22,
+        4,
+        22,
+        MediaQuery.of(context).viewInsets.bottom + MediaQuery.viewPaddingOf(context).bottom + 24,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,

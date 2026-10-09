@@ -50,7 +50,7 @@ class BackgroundAudio extends BaseAudioHandler with SeekHandler {
           p.playing ? MediaControl.pause : MediaControl.play,
           MediaControl.skipToNext,
         ],
-        systemActions: const {MediaAction.seek},
+        systemActions: const {MediaAction.seek, MediaAction.play, MediaAction.pause, MediaAction.playPause},
         androidCompactActionIndices: const [0, 1, 2],
         processingState: AudioProcessingState.ready,
         playing: p.playing,
@@ -68,16 +68,21 @@ class BackgroundAudio extends BaseAudioHandler with SeekHandler {
     await p.seek(target);
   }
 
+  void _refresh() {
+    _lastPlaying = null;
+    _broadcast();
+  }
+
   @override
   Future<void> play() async {
-    final p = _player;
-    if (p != null && !p.playing) await p.playOrPause();
+    await _player?.play();
+    _refresh();
   }
 
   @override
   Future<void> pause() async {
-    final p = _player;
-    if (p != null && p.playing) await p.playOrPause();
+    await _player?.pause();
+    _refresh();
   }
 
   @override

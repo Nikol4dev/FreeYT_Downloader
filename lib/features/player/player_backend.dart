@@ -20,6 +20,8 @@ abstract class PlayerBackend {
   Future<void> open(String source);
   Widget view();
   Future<void> playOrPause();
+  Future<void> play();
+  Future<void> pause();
   Future<void> seek(Duration to);
   Future<void> setRate(double rate);
   Future<void> setLoop(bool loop);
@@ -63,6 +65,10 @@ class _MpvBackend implements PlayerBackend {
   Widget view() => mkv.Video(controller: _c, controls: mkv.NoVideoControls, fill: Colors.transparent);
   @override
   Future<void> playOrPause() => _p.playOrPause();
+  @override
+  Future<void> play() => _p.play();
+  @override
+  Future<void> pause() => _p.pause();
   @override
   Future<void> seek(Duration to) => _p.seek(to);
   @override
@@ -144,6 +150,12 @@ class _NativeBackend implements PlayerBackend {
     if (c == null) return;
     c.value.isPlaying ? await c.pause() : await c.play();
   }
+
+  @override
+  Future<void> play() async => _c?.play();
+
+  @override
+  Future<void> pause() async => _c?.pause();
 
   @override
   Future<void> seek(Duration to) async => _c?.seekTo(to);

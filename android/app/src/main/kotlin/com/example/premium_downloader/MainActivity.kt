@@ -19,6 +19,7 @@ class MainActivity : AudioServiceActivity() {
 
     private val io = Executors.newCachedThreadPool()
     private var sharedText: String? = null
+    private var channel: MethodChannel? = null
     private val main = Handler(Looper.getMainLooper())
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -51,6 +52,11 @@ class MainActivity : AudioServiceActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handleShare(intent)
+        val text = sharedText ?: return
+        channel?.let {
+            it.invokeMethod("shared", text)
+            sharedText = null
+        }
     }
 
     private fun handleShare(intent: Intent?) {
@@ -63,7 +69,8 @@ class MainActivity : AudioServiceActivity() {
         super.configureFlutterEngine(flutterEngine)
         val messenger = flutterEngine.dartExecutor.binaryMessenger
 
-        MethodChannel(messenger, methodChannelName).setMethodCallHandler { call, result ->
+        channel = MethodChannel(messenger, methodChannelName)
+        channel?.setMethodCallHandler { call, result ->
             when (call.method) {
                 "startDownload" -> {
                     val id = call.argument<String>("taskId")
@@ -201,7 +208,7 @@ class MainActivity : AudioServiceActivity() {
                             val req = YoutubeDLRequest(url).apply {
                                 addOption("--no-playlist")
                                 addOption("-g")
-                                addOption("-f", "18/best[height<=480][vcodec!=none][acodec!=none]/best[vcodec!=none][acodec!=none]")
+                                addOption("-f", "18/best[height<=480][vcodec!=none][acodec!=none]/best[height<=480][vcodec^=avc1]/best[height<=720][vcodec!=none]")
                                 addOption("--socket-timeout", "20")
                             }
                             val link = YoutubeDL.getInstance().execute(req).out.lines().map { it.trim() }.firstOrNull { it.startsWith("http") }

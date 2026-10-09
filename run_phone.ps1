@@ -1,9 +1,11 @@
 param([switch]$Release)
 Set-Location $PSScriptRoot
-$phone = flutter devices --machine | ConvertFrom-Json | Where-Object { $_.targetPlatform -like 'android*' } | Select-Object -First 1
-if (-not $phone) {
-    Write-Host 'No phone found. Plug it in, unlock it and allow USB debugging.'
+$adb = Join-Path $env:LOCALAPPDATA 'Android\Sdk\platform-tools\adb.exe'
+$serial = & $adb devices | Select-String '\sdevice$' | ForEach-Object { ($_.Line -split '\s+')[0] } | Select-Object -First 1
+if (-not $serial) {
+    Write-Host 'No phone found. Plug it in, unlock it and tap Allow on the USB debugging prompt.'
+    & $adb devices
     exit 1
 }
 flutter pub get
-if ($Release) { flutter run --release -d $phone.id } else { flutter run -d $phone.id }
+if ($Release) { flutter run --release -d $serial } else { flutter run -d $serial }

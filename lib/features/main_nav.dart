@@ -1,34 +1,30 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../widgets/backdrop.dart';
 import '../widgets/mini_player.dart';
 import 'download/presentation/home_screen.dart';
 import 'library/presentation/library_screen.dart';
 import 'settings/settings_screen.dart';
+import 'tab_provider.dart';
 
-class MainNav extends StatefulWidget {
+class MainNav extends ConsumerWidget {
   const MainNav({super.key});
 
   @override
-  State<MainNav> createState() => _MainNavState();
-}
-
-class _MainNavState extends State<MainNav> {
-  int _index = 0;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final index = ref.watch(tabProvider);
     return Scaffold(
       body: Backdrop(
-        child: IndexedStack(index: _index, children: const [HomeScreen(), LibraryScreen(), SettingsScreen()]),
+        child: IndexedStack(index: index, children: const [HomeScreen(), LibraryScreen(), SettingsScreen()]),
       ),
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           const MiniPlayer(),
           NavigationBar(
-            selectedIndex: _index,
-            onDestinationSelected: (i) => setState(() => _index = i),
+            selectedIndex: index,
+            onDestinationSelected: ref.read(tabProvider.notifier).show,
             destinations: const [
               NavigationDestination(
                 icon: Icon(Icons.download_outlined),

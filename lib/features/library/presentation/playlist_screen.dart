@@ -62,7 +62,7 @@ class PlaylistScreen extends ConsumerWidget {
                   child: Text('Empty', style: TextStyle(color: Palette.textSoft)),
                 )
               : ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(22, 8, 22, 24),
+                  padding: EdgeInsets.fromLTRB(22, 8, 22, 24 + MediaQuery.viewPaddingOf(context).bottom),
                   itemCount: list.length + 1,
                   itemBuilder: (_, index) {
                     if (index == 0) {

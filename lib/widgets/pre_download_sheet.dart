@@ -202,9 +202,21 @@ class _PreDownloadSheetState extends ConsumerState<PreDownloadSheet> {
       content = _player!.view();
     } else if (_clip && _previewError != null) {
       content = Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Text(_previewError!, textAlign: TextAlign.center),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text(_previewError!, textAlign: TextAlign.center),
+            ),
+            TextButton(
+              onPressed: () {
+                setState(() => _previewError = null);
+                _startPreview();
+              },
+              child: const Text('Try again'),
+            ),
+          ],
         ),
       );
     } else if (_clip) {
@@ -309,7 +321,12 @@ class _PreDownloadSheetState extends ConsumerState<PreDownloadSheet> {
     final text = Theme.of(context).textTheme;
 
     return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(22, 4, 22, MediaQuery.of(context).viewInsets.bottom + 24),
+      padding: EdgeInsets.fromLTRB(
+        22,
+        4,
+        22,
+        MediaQuery.of(context).viewInsets.bottom + MediaQuery.viewPaddingOf(context).bottom + 24,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
