@@ -2,15 +2,19 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../core/app_info.dart';
 import 'settings_provider.dart';
 
 typedef Update = ({String version, String url});
 
+final appVersionProvider = FutureProvider<String>((ref) async => (await PackageInfo.fromPlatform()).version);
+
 final updateProvider = FutureProvider<Update?>((ref) async {
   if (!ref.watch(settingsProvider.select((s) => s.checkUpdates))) return null;
   if (githubRepo.startsWith('YOUR-')) return null;
+  final current = await ref.watch(appVersionProvider.future);
   final client = HttpClient();
   try {
     final req = await client.getUrl(Uri.parse('https://api.github.com/repos/$githubRepo/releases/latest'));
@@ -20,7 +24,7 @@ final updateProvider = FutureProvider<Update?>((ref) async {
     if (res.statusCode != 200) return null;
     final j = jsonDecode(await res.transform(utf8.decoder).join()) as Map<String, dynamic>;
     final tag = (j['tag_name'] as String? ?? '').replaceFirst(RegExp('^v'), '');
-    return _newer(tag, appVersion) ? (version: tag, url: j['html_url'] as String) : null;
+    return _newer(tag, current) ? (version: tag, url: j['html_url'] as String) : null;
   } catch (_) {
     return null;
   } finally {

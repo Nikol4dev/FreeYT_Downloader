@@ -1,15 +1,13 @@
 import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
-
-import '../../core/app_info.dart';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/labels.dart';
 import '../engine/engine_service.dart';
 import 'settings_provider.dart';
+import 'update_check.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -155,7 +153,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ]),
           Center(
-            child: Text('Version $appVersion', style: text.bodySmall?.copyWith(color: Palette.textSoft)),
+            child: Text(
+              'Version ${ref.watch(appVersionProvider).asData?.value ?? ''}',
+              style: text.bodySmall?.copyWith(color: Palette.textSoft),
+            ),
           ),
         ],
       ),
